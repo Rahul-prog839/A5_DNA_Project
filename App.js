@@ -1,137 +1,100 @@
-import React, { useState } from "react";
-import axios from "axios";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 
-const API_URL = "http://127.0.0.1:5000"; // Flask backend URL
+const backendURL = "https://a5-dna-project.onrender.com/"; // ⬅️ Replace this with your actual Render backend link
 
-function App() {
+// -------------------- MAIN HOME (SMART RETAIL) --------------------
+function Home() {
+  const [barcode, setBarcode] = useState("");
   const [cart, setCart] = useState([]);
-  const [scanning, setScanning] = useState(false);
-  const [manualCode, setManualCode] = useState("");
+  const [message, setMessage] = useState("");
 
-  const startScanner = () => {
-    setScanning(true);
-    const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-    scanner.render(onScanSuccess);
-  };
-
-  const onScanSuccess = (decodedText) => {
-    fetchItem(decodedText);
-  };
-
-  const fetchItem = async (sku) => {
+  const handleScan = async () => {
+    if (!barcode) return alert("Enter barcode!");
     try {
-      const res = await axios.get(`${API_URL}/item/${sku}`);
-      const existing = cart.find((i) => i.sku === sku);
-      if (existing) {
-        existing.qty += 1;
-        setCart([...cart]);
+      const res = await fetch(`${backendURL}/item/${barcode}`);
+      const data = await res.json();
+
+      if (data.error) {
+        alert("Item not found!");
       } else {
-        setCart([...cart, { ...res.data, qty: 1 }]);
+        setCart([...cart, data]);
+        setBarcode("");
       }
     } catch (err) {
-      alert("Item not found");
+      alert("Backend not reachable!");
     }
   };
 
-  const checkout = async () => {
-    const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    await axios.post(`${API_URL}/checkout`, {
-      customer_name: "Local User",
-      total,
-      items: cart,
+  const handleCheckout = async () => {
+    if (cart.length === 0) return alert("Cart is empty!");
+
+    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const res = await fetch(`${backendURL}/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cart, total }),
     });
-    alert("Checkout complete!");
-    setCart([]);
+
+    const data = await res.json();
+    if (data.message) {
+      alert(`✅ ${data.message}\nTotal Bill: ₹${data.total}`);
+      setCart([]);
+      setMessage("Checkout successful!");
+    } else {
+      alert("Checkout failed.");
+    }
   };
 
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <h1>🛒 Smart Retail Checkout System</h1>
-
-      {/* Buttons + Input */}
-      {!scanning && (
-        <button
-          onClick={startScanner}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#0078ff",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            marginRight: "10px",
-          }}
-        >
-          Start Scanner
-        </button>
-      )}
-
       <input
         type="text"
-        placeholder="Enter barcode manually"
-        value={manualCode}
-        onChange={(e) => setManualCode(e.target.value)}
-        style={{
-          padding: "8px",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-          marginRight: "10px",
-        }}
+        value={barcode}
+        onChange={(e) => setBarcode(e.target.value)}
+        placeholder="Enter Barcode (e.g., 12345)"
+        style={{ padding: "8px", marginRight: "10px" }}
       />
       <button
-        onClick={() => {
-          if (manualCode.trim()) {
-            fetchItem(manualCode.trim());
-            setManualCode("");
-          }
-        }}
+        onClick={handleScan}
         style={{
           padding: "8px 16px",
-          backgroundColor: "green",
+          backgroundColor: "#007bff",
           color: "white",
           border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
+          borderRadius: "8px",
         }}
       >
         Add Item
       </button>
 
-      <div id="reader" style={{ margin: "20px auto", width: "300px" }}></div>
-
-      <h3>🧾 Cart</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {cart.map((item) => (
-          <li key={item.sku}>
-            {item.name} × {item.qty} = ₹{item.price * item.qty}
+      <h3 style={{ marginTop: "20px" }}>🧺 Cart Items:</h3>
+      <ul>
+        {cart.map((item, i) => (
+          <li key={i}>
+            {item.name} - ₹{item.price}
           </li>
         ))}
       </ul>
 
-      {cart.length > 0 && (
-        <>
-          <h3>Total: ₹{cart.reduce((s, i) => s + i.price * i.qty, 0)}</h3>
-          <button
-            onClick={checkout}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "darkgreen",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
-          >
-            Checkout
-          </button>
-        </>
-      )}
+      <button
+        onClick={handleCheckout}
+        style={{
+          padding: "10px 20px",
+          backgroundColor: "#28a745",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          marginTop: "10px",
+        }}
+      >
+        Checkout
+      </button>
 
-      {/* --- ADMIN DASHBOARD BUTTON --- */}
-      <div>
+      <br />
+      <Link to="/admin">
         <button
-          onClick={() => (window.location.href = "/admin")}
           style={{
             padding: "8px 16px",
             backgroundColor: "#555",
@@ -144,9 +107,137 @@ function App() {
         >
           Admin Dashboard
         </button>
-      </div>
+      </Link>
+
+      {message && <p style={{ color: "green" }}>{message}</p>}
     </div>
   );
 }
 
-export default App;
+// -------------------- ADMIN DASHBOARD --------------------
+function Admin() {
+  const [inventory, setInventory] = useState([]);
+  const [bills, setBills] = useState([]);
+  const [form, setForm] = useState({ sku: "", name: "", price: "", stock: "" });
+
+  const fetchData = async () => {
+    const inv = await fetch(`${backendURL}/inventory`).then((r) => r.json());
+    const billData = await fetch(`${backendURL}/billing-history`).then((r) =>
+      r.json()
+    );
+    setInventory(inv);
+    setBills(billData);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleAddItem = async () => {
+    const res = await fetch(`${backendURL}/add-item`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (data.message) {
+      alert("✅ Item added!");
+      setForm({ sku: "", name: "", price: "", stock: "" });
+      fetchData();
+    } else {
+      alert(data.error || "Failed to add item.");
+    }
+  };
+
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>🧾 Admin Dashboard</h1>
+      <Link to="/">
+        <button
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#444",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            marginBottom: "20px",
+          }}
+        >
+          ← Back to Home
+        </button>
+      </Link>
+
+      <h3>🛍️ Add New Item</h3>
+      <input
+        placeholder="SKU"
+        value={form.sku}
+        onChange={(e) => setForm({ ...form, sku: e.target.value })}
+        style={{ margin: "5px" }}
+      />
+      <input
+        placeholder="Name"
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        style={{ margin: "5px" }}
+      />
+      <input
+        placeholder="Price"
+        type="number"
+        value={form.price}
+        onChange={(e) => setForm({ ...form, price: e.target.value })}
+        style={{ margin: "5px" }}
+      />
+      <input
+        placeholder="Stock"
+        type="number"
+        value={form.stock}
+        onChange={(e) => setForm({ ...form, stock: e.target.value })}
+        style={{ margin: "5px" }}
+      />
+      <button
+        onClick={handleAddItem}
+        style={{
+          padding: "8px 16px",
+          backgroundColor: "#007bff",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          marginLeft: "10px",
+        }}
+      >
+        Add
+      </button>
+
+      <h3 style={{ marginTop: "30px" }}>📦 Current Inventory</h3>
+      <ul>
+        {inventory.map((item) => (
+          <li key={item.sku}>
+            {item.name} - ₹{item.price} ({item.stock} pcs)
+          </li>
+        ))}
+      </ul>
+
+      <h3 style={{ marginTop: "30px" }}>🧾 Billing History</h3>
+      <ul>
+        {bills.map((bill, index) => (
+          <li key={index}>
+            <strong>Bill #{index + 1}</strong> - Total ₹{bill.total}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// -------------------- ROUTES --------------------
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="*" element={<h2>404 Not Found</h2>} />
+      </Routes>
+    </Router>
+  );
+}
