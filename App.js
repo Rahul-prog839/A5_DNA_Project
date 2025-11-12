@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
 
-const backendURL = "https://a5-dna-project.onrender.com/"; // change this to your actual backend URL
+const backendURL = "https://a5-dna-project-backend.onrender.com"; // change this to your actual backend URL
 
 // -------------------- MAIN HOME --------------------
 function Home() {
