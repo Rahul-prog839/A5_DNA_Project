@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
 
-const backendURL = "https://a5-dna-project.onrender.com/"; // ⬅️ Replace this with your actual Render backend link
+const backendURL = "https://a5-dna-project.onrender.com/"; // change this to your actual backend URL
 
-// -------------------- MAIN HOME (SMART RETAIL) --------------------
+// -------------------- MAIN HOME --------------------
 function Home() {
   const [barcode, setBarcode] = useState("");
   const [cart, setCart] = useState([]);
@@ -21,28 +21,24 @@ function Home() {
         setCart([...cart, data]);
         setBarcode("");
       }
-    } catch (err) {
+    } catch {
       alert("Backend not reachable!");
     }
   };
 
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
-
     const total = cart.reduce((sum, item) => sum + item.price, 0);
     const res = await fetch(`${backendURL}/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cart, total }),
     });
-
     const data = await res.json();
     if (data.message) {
       alert(`✅ ${data.message}\nTotal Bill: ₹${data.total}`);
       setCart([]);
       setMessage("Checkout successful!");
-    } else {
-      alert("Checkout failed.");
     }
   };
 
@@ -114,23 +110,15 @@ function Home() {
   );
 }
 
-// -------------------- ADMIN DASHBOARD --------------------
+// -------------------- ADMIN --------------------
 function Admin() {
   const [inventory, setInventory] = useState([]);
   const [bills, setBills] = useState([]);
   const [form, setForm] = useState({ sku: "", name: "", price: "", stock: "" });
 
-  const fetchData = async () => {
-    const inv = await fetch(`${backendURL}/inventory`).then((r) => r.json());
-    const billData = await fetch(`${backendURL}/billing-history`).then((r) =>
-      r.json()
-    );
-    setInventory(inv);
-    setBills(billData);
-  };
-
   useEffect(() => {
-    fetchData();
+    fetch(`${backendURL}/inventory`).then(r => r.json()).then(setInventory);
+    fetch(`${backendURL}/billing-history`).then(r => r.json()).then(setBills);
   }, []);
 
   const handleAddItem = async () => {
@@ -143,7 +131,7 @@ function Admin() {
     if (data.message) {
       alert("✅ Item added!");
       setForm({ sku: "", name: "", price: "", stock: "" });
-      fetchData();
+      fetch(`${backendURL}/inventory`).then(r => r.json()).then(setInventory);
     } else {
       alert(data.error || "Failed to add item.");
     }
@@ -208,7 +196,7 @@ function Admin() {
         Add
       </button>
 
-      <h3 style={{ marginTop: "30px" }}>📦 Current Inventory</h3>
+      <h3 style={{ marginTop: "30px" }}>📦 Inventory</h3>
       <ul>
         {inventory.map((item) => (
           <li key={item.sku}>
@@ -219,9 +207,9 @@ function Admin() {
 
       <h3 style={{ marginTop: "30px" }}>🧾 Billing History</h3>
       <ul>
-        {bills.map((bill, index) => (
-          <li key={index}>
-            <strong>Bill #{index + 1}</strong> - Total ₹{bill.total}
+        {bills.map((bill, i) => (
+          <li key={i}>
+            Bill #{i + 1} - ₹{bill.total}
           </li>
         ))}
       </ul>
@@ -229,14 +217,21 @@ function Admin() {
   );
 }
 
-// -------------------- ROUTES --------------------
+// -------------------- FALLBACK ROUTE HANDLER --------------------
+function CatchAllRedirect() {
+  const location = useLocation();
+  if (location.pathname !== "/") return <Navigate to="/" replace />;
+  return null;
+}
+
+// -------------------- APP ROUTER --------------------
 export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="*" element={<h2>404 Not Found</h2>} />
+        <Route path="*" element={<CatchAllRedirect />} />
       </Routes>
     </Router>
   );
